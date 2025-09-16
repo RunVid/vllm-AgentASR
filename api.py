@@ -184,6 +184,7 @@ async def websocket_audio_stream(websocket: WebSocket):
                     
                     if audio_format == 'unknown':
                         await websocket.send_json({"error": "Unsupported audio format. Only WAV and MP3 are supported."})
+                        print(f"Unsupported audio format. Only WAV and MP3 are supported.")
                         continue
                     
                     if audio_format == 'wav':
@@ -233,6 +234,7 @@ async def websocket_audio_stream(websocket: WebSocket):
                         await websocket.send_json({"error": f"Failed to process audio: {str(e)}"})
                     finally:
                         file_io.close()
+                        audio_buffer = bytearray()
                 
     except WebSocketDisconnect as e:
         client_host = websocket.client.host if hasattr(websocket, 'client') else 'unknown'
