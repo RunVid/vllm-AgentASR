@@ -18,7 +18,7 @@ WORKDIR /app
 
 # Set environment variables
 ENV VLLM_FLASH_ATTN_VERSION=2
-ENV TORCH_CUDA_ARCH_LIST="8.0;8.6;8.9;9.0;9.1"
+ENV TORCH_CUDA_ARCH_LIST="9.0"
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
 # --- STAGE 1: Build the stable, unchanging core dependencies ---
@@ -28,25 +28,43 @@ ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 RUN python3 -m pip install --upgrade pip
 RUN python3 -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu129
 RUN python3 -m pip install ninja
-RUN python3 -m pip install -v -U git+https://github.com/facebookresearch/xformers.git@main#egg=xformers
+RUN python3 -m pip install packaging
+RUN python3 -m pip install flash-attn --no-build-isolation
 
-# 1.2. Copy all source code *except* the frequently changing parts.
-COPY . .
-RUN rm -rf deploy api.py
+# --- STAGE 1: Copy only dependency-related files and install them ---
+# This layer will be cached as long as the dependency files do not change.
+# We copy every file and directory needed for the C++/CUDA compilation,
+# which is triggered by `pip install .`.
+COPY requirements/ ./requirements/
+COPY use_existing_torch.py ./
+COPY setup.py ./
+COPY pyproject.toml ./
+COPY CMakeLists.txt ./
+COPY MANIFEST.in ./
+COPY .git ./.git
+COPY cmake/ ./cmake/
+COPY csrc/ ./csrc/
+COPY vllm ./vllm
 
-# 1.3. Install requirements and the vllm package itself.
+RUN python3 use_existing_torch.py
 RUN python3 -m pip install -r requirements/build.txt
 RUN python3 -m pip install -r requirements/common.txt
-RUN python3 use_existing_torch.py
+
 RUN python3 -m pip install . --no-build-isolation
+
+# [FIX] Manually move the compiled C++/CUDA extensions from the temporary
+# build directory to the final vllm package directory. This ensures that the
+# Python interpreter can find them at runtime.
+RUN find /app/build -name "*.so" -exec mv {} /app/vllm/ \;
+
 RUN python3 -m pip install -U nvidia-nccl-cu12
 RUN python3 -m pip install flashinfer-python
 RUN python3 -m pip install librosa
 
-# --- STAGE 2: Add the frequently changing application code ---
+
+# --- STAGE 2: Copy the rest of the application code ---
 # Changes to these files will only invalidate the cache from this point onwards.
-COPY deploy/ ./deploy/
-COPY api.py ./
+COPY . .
 
 # --- STAGE 3: Final configuration ---
 # Generate self-signed SSL certificate for Nginx

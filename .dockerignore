@@ -33,11 +33,6 @@ share/python-wheels/
 MANIFEST
 
 # === Additions for containerization ===
-
-# Git
-.git
-.gitignore
-
 # Logs
 logs/
 *.log
@@ -49,3 +44,6 @@ logs/
 # Caches
 .pytest_cache/
 pip-cache/
+
+# Local build artifacts
+.deps/

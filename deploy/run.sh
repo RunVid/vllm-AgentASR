@@ -15,6 +15,11 @@ run_server() {
     # Assign GPU and Port for this instance
     export CUDA_VISIBLE_DEVICES=$gpu_id
     export PORT=$port
+    
+    # [FIX] Assign a unique cache directory for each vLLM instance using the
+    # correct `VLLM_CACHE_ROOT` environment variable. This prevents race
+    # conditions during torch.compile caching.
+    export VLLM_CACHE_ROOT="/root/.cache/vllm_gpu_${gpu_id}"
 
     while true; do
         echo "[$(date)] - Starting server on GPU $gpu_id at port $port"
@@ -27,22 +32,16 @@ run_server() {
     done
 }
 
-# Activate the conda environment.
-# This is necessary for the python command to find the correct dependencies.
-echo "Activating conda environment 'agentasr'..."
-eval "$(conda shell.bash hook)"
-conda activate agentasr
-
-# Get the number of available GPUs.
-# This command assumes nvidia-smi is in the PATH.
-NUM_GPUS=$(nvidia-smi -L | wc -l)
+# Define the specific GPUs to use
+GPUS_TO_USE=(4 5 6 7)
+NUM_GPUS=${#GPUS_TO_USE[@]}
 
 if [ $NUM_GPUS -eq 0 ]; then
-    echo "No GPUs found. Exiting."
+    echo "No GPUs specified in GPUS_TO_USE. Exiting."
     exit 1
 fi
 
-echo "Found $NUM_GPUS GPUs. Starting one monitored server per GPU."
+echo "Using $NUM_GPUS GPUs: ${GPUS_TO_USE[*]}. Starting one monitored server per specified GPU."
 
 # Create a directory for log files and a single log file for all servers.
 mkdir -p logs
@@ -51,19 +50,22 @@ LOG_FILE="logs/all_servers.log"
 > "$LOG_FILE"
 echo "All server logs will be appended to: $LOG_FILE"
 
-BASE_PORT=50002
+BASE_PORT=51000
 NGINX_UPSTREAM_CONFIG=""
+port_offset=0
 
-for (( i=0; i<$NUM_GPUS; i++ ))
+for gpu_id in "${GPUS_TO_USE[@]}"
 do
-    port=$((BASE_PORT + i))
-    echo "Launching monitor for server on GPU $i at port $port"
-    
+    port=$((BASE_PORT + port_offset))
+    echo "Launching monitor for server on GPU $gpu_id at port $port"
+
     # Add server to Nginx upstream config, ensuring a proper newline.
     NGINX_UPSTREAM_CONFIG+=$(printf "    server 127.0.0.1:%s;\\n" "$port")
-    
+
     # Run the server monitor function in the background, appending its output to the shared log file
-    run_server $i $port >> "$LOG_FILE" 2>&1 &
+    run_server $gpu_id $port >> "$LOG_FILE" 2>&1 &
+
+    port_offset=$((port_offset + 1))
 done
 
 echo "All server monitors have been started in the background."
