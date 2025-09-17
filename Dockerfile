@@ -18,8 +18,6 @@ WORKDIR /app
 
 # Set environment variables
 ENV VLLM_FLASH_ATTN_VERSION=2
-ENV TORCH_CUDA_ARCH_LIST="9.0"
-ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
 # --- STAGE 1: Build the stable, unchanging core dependencies ---
 # This entire section will be cached as long as the core source code does not change.
@@ -74,11 +72,11 @@ RUN openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
     -out /etc/nginx/ssl/self-signed.crt \
     -subj "/C=US/ST=CA/L=SF/O=Org/CN=localhost"
 
-# Copy the Nginx configuration and enable the site
-# Note: This assumes vllm_load_balancer.conf is inside the deploy directory
-COPY deploy/vllm_load_balancer.conf /etc/nginx/sites-available/vllm_load_balancer
-RUN ln -s /etc/nginx/sites-available/vllm_load_balancer /etc/nginx/sites-enabled/ && \
-    rm /etc/nginx/sites-enabled/default
+# The Nginx configuration will be generated dynamically at runtime by run.sh.
+# We no longer copy a static config file during the build.
+# COPY deploy/vllm_load_balancer.conf /etc/nginx/sites-available/vllm_load_balancer
+# RUN ln -s /etc/nginx/sites-available/vllm_load_balancer /etc/nginx/sites-enabled/ && \
+#     rm /etc/nginx/sites-enabled/default
 
 # Copy the supervisor configuration file
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
