@@ -40,6 +40,10 @@ COPY MANIFEST.in ./
 COPY cmake/ ./cmake/
 COPY csrc/ ./csrc/
 COPY vllm ./vllm
+# COPY .git ./.git
+
+ARG VERSION
+ENV SETUPTOOLS_SCM_PRETEND_VERSION=${VERSION:-0.0.0}
 
 RUN python3 use_existing_torch.py
 RUN python3 -m pip install -r requirements/build.txt
@@ -59,7 +63,6 @@ RUN python3 -m pip install librosa
 
 # --- STAGE 2: Copy the rest of the application code ---
 # Changes to these files will only invalidate the cache from this point onwards.
-COPY .git ./.git
 COPY . .
 
 # --- STAGE 3: Final configuration ---
