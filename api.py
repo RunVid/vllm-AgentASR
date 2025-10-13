@@ -26,9 +26,8 @@ start_time = time.time()
 llm = LLM(model=MODEL_PATH,
           max_model_len=4096,
           max_num_batched_tokens=4096,
-          mm_processor_cache_gb=0,
           max_num_seqs=MAX_AUDIO_FILES,
-          gpu_memory_utilization=0.95,
+          gpu_memory_utilization=0.2,
           limit_mm_per_prompt={"audio": MAX_AUDIO_FILES})
 print(f"Model loaded in {time.time() - start_time:.2f}s")
 
@@ -234,7 +233,7 @@ async def websocket_audio_stream(websocket: WebSocket):
                         await websocket.send_json({"error": f"Failed to process audio: {str(e)}"})
                     finally:
                         file_io.close()
-                        audio_buffer = bytearray()
+                        #audio_buffer = bytearray()
                 
     except WebSocketDisconnect as e:
         client_host = websocket.client.host if hasattr(websocket, 'client') else 'unknown'
