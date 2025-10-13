@@ -13,6 +13,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from typing_extensions import Annotated
 import torchaudio
 from vllm import LLM, SamplingParams
+from output_parser import parse_model_output
 # from funasr.utils.postprocess_utils import rich_transcription_postprocess
 
 os.environ["LOGURU_LEVEL"] = "DEBUG"
@@ -115,7 +116,8 @@ async def turn_audio_to_text(files: Annotated[List[bytes], File(description="wav
         return {"result": []}
     
     text = outputs[0].outputs[0].text
-    
+
+    parsed_data = parse_model_output(text)
     if keys == "":
         key_list = ["wav_file_tmp_name"]
     else:
@@ -124,8 +126,9 @@ async def turn_audio_to_text(files: Annotated[List[bytes], File(description="wav
     result = {
         "key": key_list[0],
         "raw_text": text,
-        "clean_text": re.sub(regex, "", text, 0, re.MULTILINE),
-        "text": text
+        "clean_text": parsed_data['transcript_clean'],
+        "text": parsed_data['transcript_clean_with_event'],
+        "_debug": parsed_data
     }
 
     return {"result": [result]}

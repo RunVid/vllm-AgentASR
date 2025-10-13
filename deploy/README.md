@@ -8,6 +8,7 @@ This deployment model follows modern best practices:
 - **Slim Containers**: Each Docker container runs a single process (the Python application).
 - **Multi-Instance Deployment**: The `docker-run-prod.sh` script launches multiple container instances, allowing for multiple instances per GPU to maximize utilization.
 - **External Load Balancing**: A web server (like Nginx or Caddy) running on the **host machine** is required to act as a reverse proxy and load balancer, distributing traffic to the running containers.
+- **Shared Configuration**: Deployment settings are centralized in `deploy/deploy.conf`.
 
 ## Prerequisites
 
@@ -19,7 +20,11 @@ This deployment model follows modern best practices:
 
 ## Deployment Workflow
 
-### Step 1: Build the Docker Image
+### Step 1: Configure Your Deployment
+
+All deployment settings are controlled by the `deploy/deploy.conf` file. Before you begin, open this file and customize it for your environment if needed.
+
+### Step 2: Build the Docker Image
 
 This step packages the application and its dependencies into a Docker image. You only need to re-run this when you change the application code or `Dockerfile`.
 
@@ -28,33 +33,25 @@ This step packages the application and its dependencies into a Docker image. You
 bash deploy/docker-build.sh
 ```
 
-### Step 2: Configure & Run the Containers
+### Step 3: Run the Containers
 
-This step launches the Docker containers based on the image built in Step 1.
+This step launches the Docker containers based on the settings in `deploy/deploy.conf`.
 
-1.  **(Optional) Customize Deployment**: Before running, you can edit `deploy/docker-run-prod.sh` to configure:
-    - `GPUS_TO_USE`: An array of GPU IDs to deploy on (e.g., `(0 1)`).
-    - `INSTANCES_PER_GPU`: The number of containers to run on each GPU (e.g., `2`).
-    - `BASE_PORT`: The starting port on the host for the containers (e.g., `52000`).
+**Command (run from the project root `vllm-AgentASR/`):**
+```bash
+bash deploy/docker-run-prod.sh
+```
 
-2.  **Launch Containers**:
-    **Command (run from the project root `vllm-AgentASR/`):**
-    ```bash
-    bash deploy/docker-run-prod.sh
-    ```
+### Step 4: Configure the Host Load Balancer
 
-### Step 3: Configure the Host Load Balancer
+This is a one-time setup to tell your host's Nginx how to find and distribute traffic to your running containers. The provided `vllm_load_balancer.conf` is configured for the default settings. If you change the ports or number of instances, you must update it accordingly.
 
-This is a one-time setup to tell your host's Nginx how to find and distribute traffic to your running containers. The provided `vllm_load_balancer.conf` is configured for the default settings in the run script. If you change the ports or number of instances, you must update it accordingly.
-
-**Commands (run from your workspace root):**
+**Commands:**
 ```bash
 # 1. Copy the configuration file to Nginx's "sites-available" directory.
 sudo cp vllm-AgentASR/deploy/vllm_load_balancer.conf /etc/nginx/sites-available/
 
 # 2. Clean up any old links/files and enable the site by creating the correct symbolic link.
-#    Note: We create the link named "vllm_load_balancer" (without .conf) to match
-#    the include directive in the main nginx.conf on this system.
 sudo rm -f /etc/nginx/sites-enabled/vllm_load_balancer
 sudo rm -f /etc/nginx/sites-enabled/vllm_load_balancer.conf
 sudo ln -s /etc/nginx/sites-available/vllm_load_balancer.conf /etc/nginx/sites-enabled/vllm_load_balancer
@@ -66,22 +63,21 @@ sudo nginx -t
 sudo systemctl restart nginx
 ```
 
-### Step 4: Warm Up the Services
+### Step 5: Warm Up the Services
 
-After the containers are running, it is recommended to run the warmup script. This script sends a dummy request to each container, which triggers the one-time compilation of the model's GPU kernels. This prevents the first real user request from experiencing a "cold start" delay.
+After the containers are running, run the warmup script to prevent a "cold start" delay for the first user.
 
 **Command (run from the project root `vllm-AgentASR/`):**
 ```bash
 bash deploy/warmup.sh
 ```
 
-### Step 5: Verify the Service
+### Step 6: Verify the Service
 
 1.  **Check Running Containers**:
     ```bash
     docker ps
     ```
-    You should see all your configured containers running (e.g., `vllm-agent-asr-prod-gpu0-1`, etc.).
 
 2.  **Send a Test Request**:
     Use a `curl` command to send a test audio file. Remember to replace `YOUR_SERVER_IP` and the file path.
@@ -91,18 +87,15 @@ bash deploy/warmup.sh
     --insecure \
     -F "files=@/path/to/your/audio.wav" \
     -F "keys=my-audio-file.wav" \
-    https:///8.34.125.71:8443/api/v1/asr
+    https://YOUR_SERVER_IP:8443/api/v1/asr
     ```
 
 ---
 
 ## Stopping the Service
 
-To stop the application, you need to stop the running Docker containers. The `docker-run-prod.sh` script will automatically remove containers with the same name on the next run, but for a clean stop, you can use `docker stop` or `docker rm -f`.
+To stop the application, you need to stop the running Docker containers. You can do this by re-running the launch script (which will stop and remove the old ones before starting new ones) or by using `docker stop`.
 ```bash
-# Example for a single container
-docker stop vllm-agent-asr-prod-gpu0-1
-
-# Or to stop all of them (use with caution)
+# To stop all project-related containers
 docker stop $(docker ps -q --filter name=vllm-agent-asr-prod)
 ```

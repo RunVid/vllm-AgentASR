@@ -37,7 +37,6 @@ COPY setup.py ./
 COPY pyproject.toml ./
 COPY CMakeLists.txt ./
 COPY MANIFEST.in ./
-COPY .git ./.git
 COPY cmake/ ./cmake/
 COPY csrc/ ./csrc/
 COPY vllm ./vllm
@@ -60,6 +59,7 @@ RUN python3 -m pip install librosa
 
 # --- STAGE 2: Copy the rest of the application code ---
 # Changes to these files will only invalidate the cache from this point onwards.
+COPY .git ./.git
 COPY . .
 
 # --- STAGE 3: Final configuration ---
