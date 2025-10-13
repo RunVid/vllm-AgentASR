@@ -9,8 +9,6 @@ RUN apt-get update && apt-get install -y \
     git \
     python3.10 \
     python3-pip \
-    nginx \
-    supervisor \
     && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory
@@ -65,24 +63,8 @@ RUN python3 -m pip install librosa
 COPY . .
 
 # --- STAGE 3: Final configuration ---
-# Generate self-signed SSL certificate for Nginx
-RUN mkdir -p /etc/nginx/ssl
-RUN openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-    -keyout /etc/nginx/ssl/self-signed.key \
-    -out /etc/nginx/ssl/self-signed.crt \
-    -subj "/C=US/ST=CA/L=SF/O=Org/CN=localhost"
+# Expose the application port
+EXPOSE 50002
 
-# The Nginx configuration will be generated dynamically at runtime by run.sh.
-# We no longer copy a static config file during the build.
-# COPY deploy/vllm_load_balancer.conf /etc/nginx/sites-available/vllm_load_balancer
-# RUN ln -s /etc/nginx/sites-available/vllm_load_balancer /etc/nginx/sites-enabled/ && \
-#     rm /etc/nginx/sites-enabled/default
-
-# Copy the supervisor configuration file
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-
-# Expose the HTTPS port
-EXPOSE 443
-
-# Start supervisor to manage Nginx and the application
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+# Start the service directly
+CMD ["python3", "api.py"]
