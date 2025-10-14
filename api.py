@@ -28,7 +28,7 @@ llm = LLM(model=MODEL_PATH,
           max_model_len=2048,
           max_num_batched_tokens=2048,
           max_num_seqs=MAX_AUDIO_FILES,
-          gpu_memory_utilization=0.3,
+          gpu_memory_utilization=0.32,
           limit_mm_per_prompt={"audio": MAX_AUDIO_FILES})
 print(f"Model loaded in {time.time() - start_time:.2f}s")
 
@@ -62,11 +62,20 @@ async def root():
     </html>
     """
 
+# def generate_prompt():
+#     prompt = (
+#         "<|im_start|>system\nYou are a helpful assistant. /no_think<|im_end|>\n"
+#         "<|im_start|>user\n"
+#         f"Analyze the audio. EMOTION_OFF EVENT_ON TRANSCRIPTION_ON Audio 1: <|AUDIO|><|im_end|>\n"
+#         "<|im_start|>assistant\n"
+#         "<think>\n\n</think>\n\n"
+#     )
+#     return prompt
 def generate_prompt():
     prompt = (
         "<|im_start|>system\nYou are a helpful assistant. /no_think<|im_end|>\n"
         "<|im_start|>user\n"
-        f"Analyze the audio. EMOTION_OFF EVENT_ON TRANSCRIPTION_ON Audio 1: <|AUDIO|><|im_end|>\n"
+        "EMOTION_OFF EVENT_ON TRANSCRIPTION_ON\n\nAnalyze the audio. Audio 1: <|AUDIO|><|im_end|>\n"
         "<|im_start|>assistant\n"
         "<think>\n\n</think>\n\n"
     )
@@ -125,8 +134,8 @@ async def turn_audio_to_text(files: Annotated[List[bytes], File(description="wav
     
     result = {
         "key": key_list[0],
-        "raw_text": text,
-        "clean_text": parsed_data['transcript_clean'],
+        "raw_text": parsed_data['transcript_clean_with_event'],
+        "clean_text": parsed_data['transcript_clean_with_event'],
         "text": parsed_data['transcript_clean_with_event'],
         "_debug": parsed_data
     }
@@ -224,11 +233,14 @@ async def websocket_audio_stream(websocket: WebSocket):
                             await websocket.send_json({"result": []})
                         else:
                             text = outputs[0].outputs[0].text
+
+                            parsed_data = parse_model_output(text)
                             result = {
                                 "key": "websocket_stream",
-                                "raw_text": text,
-                                "clean_text": re.sub(regex, "", text, 0, re.MULTILINE),
-                                "text": text
+                                "raw_text": parsed_data['transcript_clean_with_event'],
+                                "clean_text": parsed_data['transcript_clean_with_event'],
+                                "text": parsed_data['transcript_clean_with_event'],
+                                "_debug": parsed_data
                             }
                             await websocket.send_json({"result": [result]})
                         

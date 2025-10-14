@@ -8,12 +8,6 @@ source "$(dirname "$0")/deploy.conf"
 # You still need an external load balancer (like Nginx or Caddy on the host)
 # to distribute traffic to the different host ports.
 
-# Use the git commit hash as the version tag if VERSION is not set
-if [ -z "${VERSION}" ]; then
-  export VERSION=$(git rev-parse --short HEAD)
-  echo "VERSION not set, using git commit: ${VERSION}"
-fi
-
 echo "Using GPUs: ${GPUS_TO_USE[*]}"
 echo "Instances per GPU: ${INSTANCES_PER_GPU}"
 echo "Base port: ${BASE_PORT}"
@@ -21,9 +15,11 @@ echo "Image: ${IMAGE_NAME}:${VERSION}"
 echo "Model: ${MODEL_NAME}"
 
 port_offset=0
-for gpu_id in "${GPUS_TO_USE[@]}"
+# Loop through each instance number
+for (( instance=1; instance<=${INSTANCES_PER_GPU}; instance++ ))
 do
-  for (( instance=1; instance<=${INSTANCES_PER_GPU}; instance++ ))
+  # Loop through each GPU ID
+  for gpu_id in "${GPUS_TO_USE[@]}"
   do
     port=$((BASE_PORT + port_offset))
     container_name="vllm-agent-asr-prod-gpu${gpu_id}-${instance}"
@@ -53,7 +49,16 @@ do
 
     port_offset=$((port_offset + 1))
   done
+
+  # Wait for 2 minutes before starting the next set of instances on the GPUs,
+  # but don't wait after the last instance.
+  if [ "${instance}" -lt "${INSTANCES_PER_GPU}" ]; then
+      echo "--> Waiting for 2 minutes before launching the next instance on each GPU..."
+      sleep 120
+  fi
 done
+
+echo "--> All containers launched."
 
 echo ""
 echo "All containers have been started."
