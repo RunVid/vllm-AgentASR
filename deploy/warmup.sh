@@ -1,10 +1,35 @@
 #!/bin/bash
 set -e
 
+# Check if environment parameter is provided
+if [ "$#" -ne 1 ] || { [ "$1" != "prod" ] && [ "$1" != "staging" ]; }; then
+    echo "Usage: $0 {prod|staging}"
+    echo ""
+    echo "Examples:"
+    echo "  $0 prod      # Warmup production containers"
+    echo "  $0 staging   # Warmup staging containers"
+    exit 1
+fi
+
+ENV=$1
+
 # Load the shared configuration variables
 source "$(dirname "$0")/deploy.conf"
 
-echo "--- Starting Service Warmup ---"
+# Set environment-specific variables
+if [ "${ENV}" == "prod" ]; then
+    BASE_PORT=${BASE_PORT_PROD}
+    GPUS_TO_USE=("${GPUS_TO_USE_PROD[@]}")
+    INSTANCES_PER_GPU=${INSTANCES_PER_GPU_PROD}
+    CONTAINER_PREFIX="vllm-agent-asr-prod"
+else
+    BASE_PORT=${BASE_PORT_STAGING}
+    GPUS_TO_USE=("${GPUS_TO_USE_STAGING[@]}")
+    INSTANCES_PER_GPU=${INSTANCES_PER_GPU_STAGING}
+    CONTAINER_PREFIX="vllm-agent-asr-staging"
+fi
+
+echo "--- Starting Service Warmup for ${ENV} environment ---"
 
 # Calculate the total number of containers
 num_gpus=${#GPUS_TO_USE[@]}
@@ -30,7 +55,7 @@ do
   for (( instance=1; instance<=${INSTANCES_PER_GPU}; instance++ ))
   do
     port=$((BASE_PORT + port_offset))
-    container_name="vllm-agent-asr-prod-gpu${gpu_id}-${instance}"
+    container_name="${CONTAINER_PREFIX}-gpu${gpu_id}-${instance}"
     health_endpoint="http://127.0.0.1:${port}/"
     asr_endpoint="http://127.0.0.1:${port}/api/v1/asr"
     

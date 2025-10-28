@@ -28,7 +28,7 @@ llm = LLM(model=MODEL_PATH,
           max_model_len=2048,
           max_num_batched_tokens=2048,
           max_num_seqs=MAX_AUDIO_FILES,
-          gpu_memory_utilization=0.32,
+          gpu_memory_utilization=0.25,
           limit_mm_per_prompt={"audio": MAX_AUDIO_FILES})
 print(f"Model loaded in {time.time() - start_time:.2f}s")
 
