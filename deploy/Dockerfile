@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Set environment variables
+ENV FLASH_ATTENTION_2=1
 ENV VLLM_FLASH_ATTN_VERSION=2
 
 # --- STAGE 1: Build the stable, unchanging core dependencies ---
