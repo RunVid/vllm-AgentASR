@@ -56,7 +56,7 @@ RUN python3 -m pip install . --no-build-isolation
 # [FIX] Manually move the compiled C++/CUDA extensions from the temporary
 # build directory to the final vllm package directory. This ensures that the
 # Python interpreter can find them at runtime.
-RUN find /app/build -name "*.so" -exec mv {} /app/vllm/ \;
+#RUN find /app/build -name "*.so" -exec mv {} /app/vllm/ \;
 
 RUN python3 -m pip install -U nvidia-nccl-cu12
 RUN python3 -m pip install flashinfer-python
