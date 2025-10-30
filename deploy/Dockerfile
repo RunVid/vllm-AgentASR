@@ -62,6 +62,10 @@ RUN python3 -m pip install -U nvidia-nccl-cu12
 RUN python3 -m pip install flashinfer-python
 RUN python3 -m pip install librosa
 
+# Install FFmpeg and TorchCodec for audio decoding
+RUN apt-get update && apt-get install -y ffmpeg
+RUN python3 -m pip install torchcodec
+
 
 # --- STAGE 2: Copy the rest of the application code ---
 # Changes to these files will only invalidate the cache from this point onwards.
