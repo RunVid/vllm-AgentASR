@@ -56,17 +56,17 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no ${{ env.SERVER_USER }}@${{ env.SERVER_IP }} "
           echo ${{ env.DOCKER_HUB_ACCESS_TOKEN }} | docker login -u bot19pine --password-stdin && \
-          cd ~/deployment/vllm-AgentASR/deploy && \
+          cd ~/deployment/vllm-AgentASR && \
           pwd && \
           export VERSION=${{ env.COMMIT_ID }} && \
           export ENVIRONMENT=${{ env.ENVIRONMENT }} && \
           export HF_TOKEN=${{ env.HF_TOKEN }} && \
-          ./docker-build.sh && \
-          ./docker-run.sh ${{ env.ENVIRONMENT }}"
+          ./deploy/docker-build.sh && \
+          ./deploy/docker-run.sh ${{ env.ENVIRONMENT }}"
 
       - name: Warmup services on Server ${{ matrix.server_id }}
         run: |
           ssh -o StrictHostKeyChecking=no ${{ env.SERVER_USER }}@${{ env.SERVER_IP }} "
-          cd ~/deployment/vllm-AgentASR/deploy && \
-          ./warmup.sh ${{ env.ENVIRONMENT }}"
+          cd ~/deployment/vllm-AgentASR && \
+          ./deploy/warmup.sh ${{ env.ENVIRONMENT }}"
 
