@@ -20,6 +20,7 @@ jobs:
   deploy:
     name: Deploy to Server ${{ matrix.server_id }}
     runs-on: ubuntu-latest
+    timeout-minutes: 120  # Allow up to 2 hours for the entire deployment
     strategy:
       matrix:
         server_id: ${{ github.event.inputs.environment == 'prod' && fromJSON('[1]') || fromJSON('[1]') }}
@@ -53,8 +54,12 @@ jobs:
           rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no" . ${{ env.SERVER_USER }}@${{ env.SERVER_IP }}:~/deployment/vllm-AgentASR/
 
       - name: Build and run Docker image on Server ${{ matrix.server_id }}
+        timeout-minutes: 90  # Allow up to 90 minutes for build and deploy
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ env.SERVER_USER }}@${{ env.SERVER_IP }} "
+          ssh -o StrictHostKeyChecking=no \
+              -o ServerAliveInterval=60 \
+              -o ServerAliveCountMax=120 \
+              ${{ env.SERVER_USER }}@${{ env.SERVER_IP }} "
           echo ${{ env.DOCKER_HUB_ACCESS_TOKEN }} | docker login -u bot19pine --password-stdin && \
           cd ~/deployment/vllm-AgentASR && \
           pwd && \
@@ -65,8 +70,12 @@ jobs:
           ./deploy/docker-run.sh ${{ env.ENVIRONMENT }}"
 
       - name: Warmup services on Server ${{ matrix.server_id }}
+        timeout-minutes: 30  # Allow up to 30 minutes for warmup
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ env.SERVER_USER }}@${{ env.SERVER_IP }} "
+          ssh -o StrictHostKeyChecking=no \
+              -o ServerAliveInterval=60 \
+              -o ServerAliveCountMax=120 \
+              ${{ env.SERVER_USER }}@${{ env.SERVER_IP }} "
           cd ~/deployment/vllm-AgentASR && \
           ./deploy/warmup.sh ${{ env.ENVIRONMENT }}"
 
