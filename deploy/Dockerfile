@@ -26,6 +26,7 @@ RUN python3 -m pip install --upgrade pip
 RUN python3 -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu129
 RUN python3 -m pip install ninja
 RUN python3 -m pip install packaging
+RUN python3 -m pip install psutil
 RUN python3 -m pip install flash-attn --no-build-isolation
 
 # --- STAGE 1: Copy only dependency-related files and install them ---
