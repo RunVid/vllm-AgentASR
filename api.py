@@ -18,9 +18,11 @@ from output_parser import parse_model_output
 
 os.environ["LOGURU_LEVEL"] = "DEBUG"
 
-# 1. Load Model
+if os.getenv("HF_TOKEN"):
+    os.environ['HUGGING_FACE_HUB_TOKEN'] = os.getenv("HF_TOKEN")
+
 MAX_AUDIO_FILES = 1
-MODEL_PATH = os.getenv("MODEL_PATH", "/models")
+MODEL_PATH = os.getenv("MODEL_PATH", "19pine/agentasr")
 
 print(f"Loading model from: {MODEL_PATH}")
 start_time = time.time()
