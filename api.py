@@ -15,11 +15,14 @@ import torchaudio
 from vllm import LLM, SamplingParams
 from output_parser import parse_model_output
 # from funasr.utils.postprocess_utils import rich_transcription_postprocess
+from huggingface_hub import login
 
 os.environ["LOGURU_LEVEL"] = "DEBUG"
 
 if os.getenv("HF_TOKEN"):
     os.environ['HUGGING_FACE_HUB_TOKEN'] = os.getenv("HF_TOKEN")
+print(f"HF_TOKEN: {os.getenv('HF_TOKEN')}")
+login(token=os.getenv("HF_TOKEN"))
 
 MAX_AUDIO_FILES = 1
 MODEL_PATH = os.getenv("MODEL_PATH", "19pine/agentasr")
@@ -142,6 +145,10 @@ async def turn_audio_to_text(files: Annotated[List[bytes], File(description="wav
         "_debug": parsed_data
     }
 
+    print("\tResult: ", parsed_data['transcript_clean_with_event'], "\t Output: ", outputs[0].outputs[0].text)
+    print("\t#Tokens: ", len(outputs[0].outputs[0].token_ids), ", output speed: ", len(outputs[0].outputs[0].token_ids) / (transcribe_time_ms + 1) * 1000, "tokens/s")
+    print("\tRTF: ", rtf, ", audio duration: ", total_duration, "s")
+
     return {"result": [result]}
 
 def detect_audio_format(audio_data: bytes) -> str:
@@ -244,7 +251,12 @@ async def websocket_audio_stream(websocket: WebSocket):
                                 "text": parsed_data['transcript_clean_with_event'],
                                 "_debug": parsed_data
                             }
+
                             await websocket.send_json({"result": [result]})
+
+                            print("\tResult: ", parsed_data['transcript_clean_with_event'], "\t output: ", outputs[0].outputs[0].text)
+                            print("\t#Tokens: ", len(outputs[0].outputs[0].token_ids), "output speed: ", len(outputs[0].outputs[0].token_ids) / (transcribe_time_ms + 1) * 1000, "tokens/s")
+                            print("\tRTF: ", rtf, ", audio duration: ", audio_duration, "s")
                         
                     except Exception as e:
                         await websocket.send_json({"error": f"Failed to process audio: {str(e)}"})

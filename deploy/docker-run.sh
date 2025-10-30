@@ -53,7 +53,7 @@ do
 
     # Stop and remove any existing container with the same name before launching.
     sudo docker rm -f ${container_name} || true
-
+    echo "HF_TOKEN: ${HF_TOKEN}"
     # Run the new container
     sudo docker run -d \
       --name ${container_name} \

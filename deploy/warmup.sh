@@ -63,8 +63,8 @@ do
 
     # Retry loop to wait for the service to become available
     echo "Waiting for service at ${health_endpoint} to be ready..."
-    max_retries=10
-    retry_interval=5
+    max_retries=20
+    retry_interval=20
     for (( i=1; i<=max_retries; i++ )); do
         # Use curl's silent (--silent) and output-to-null (-o /dev/null) flags for a clean check
         if curl --silent -o /dev/null ${health_endpoint}; then
