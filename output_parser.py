@@ -137,7 +137,7 @@ def clean_repeated_patterns(text: str, threshold: int = 10, max_len: int = 30) -
     return fix_pattern_repeats(text, threshold, max_len)
 
 
-def clean_sequential_hallucinations(text: str, min_seq_len: int = 4) -> str:
+def clean_sequential_hallucinations(text: str, min_seq_len: int = 10) -> str:
     """
     Remove meaningless sequential or templated patterns such as:
         1 2 3 4
@@ -145,114 +145,115 @@ def clean_sequential_hallucinations(text: str, min_seq_len: int = 4) -> str:
         the answer is 1, the answer is 2, ...
     while preserving original casing, punctuation, and natural spacing.
     """
-    if not text:
-        return text
+    try:
+        if not text:
+            return text
 
-    lower_text = text.lower()
+        original_text = text
 
-    # --- Step 1: Remove templated numeric hallucinations
-    template_pattern = re.compile(
-        r"(?:\b[\w\s]{0,20}?(?:is|are|was|were)\s+)?"
-        r"(?:\b(the\s+answer\s+is|the\s+result\s+is|answer\s+is)\s+)"
-        r"((?:\d+|zero|one|two|three|four|five|six|seven|eight|nine|ten)"
-        r"(?:\s*,?\s*(?:the\s+answer\s+is\s+)?(?:\d+|zero|one|two|three|four|five|six|seven|eight|nine|ten)){"
-        + str(min_seq_len - 1) + r",})",
-        flags=re.IGNORECASE,
-    )
-    mask_text = re.sub(template_pattern, "", lower_text)
+        # --- Step 1: Remove templated numeric hallucinations (大小写无关)
+        template_pattern = re.compile(
+            r"(?:\b[\w\s]{0,20}?(?:is|are|was|were)\s+)?"
+            r"(?:\b(the\s+answer\s+is|the\s+result\s+is|answer\s+is)\s+)"
+            r"((?:\d+|zero|one|two|three|four|five|six|seven|eight|nine|ten)"
+            r"(?:\s*,?\s*(?:the\s+answer\s+is\s+|answer\s+is\s+)?(?:\d+|zero|one|two|three|four|five|six|seven|eight|nine|ten)){"
+            + str(min_seq_len - 1) + r",})",
+            flags=re.IGNORECASE,
+        )
+        lower_text = text.lower()
+        mask_text = re.sub(template_pattern, "", lower_text)
+        templated_removed = mask_text != lower_text
 
-    # --- Step 2: Remove sequential patterns
-    alphabet = list(string.ascii_lowercase)
-    number_words = [
-        "zero", "one", "two", "three", "four", "five", "six",
-        "seven", "eight", "nine", "ten", "eleven", "twelve",
-        "thirteen", "fourteen", "fifteen", "sixteen", "seventeen",
-        "eighteen", "nineteen", "twenty",
-    ]
-    digits = [str(i) for i in range(0, 21)]
-    sequences = [alphabet, number_words, digits]
+        # --- Step 2: Tokenize 原文 + 小写版
+        tokens_orig = re.findall(r"\b\w+\b|[^\w\s]", text)
+        tokens_lower = [t.lower() for t in tokens_orig]
 
-    # Split words & punctuation (保留标点)
-    tokens = re.findall(r"\b\w+\b|[^\w\s]", mask_text)
+        alphabet = list(string.ascii_lowercase)
+        number_words = [
+            "zero", "one", "two", "three", "four", "five", "six",
+            "seven", "eight", "nine", "ten", "eleven", "twelve",
+            "thirteen", "fourteen", "fifteen", "sixteen", "seventeen",
+            "eighteen", "nineteen", "twenty",
+        ]
+        digits = [str(i) for i in range(0, 21)]
+        sequences = [alphabet, number_words, digits]
 
-    def is_seq(segment, seq):
-        try:
-            start = seq.index(segment[0])
-        except ValueError:
-            return False
-        for j, t in enumerate(segment):
-            if start + j >= len(seq) or seq[start + j] != t:
+        def is_seq(segment, seq):
+            try:
+                start = seq.index(segment[0])
+            except ValueError:
                 return False
-        return True
+            for j, t in enumerate(segment):
+                if start + j >= len(seq) or seq[start + j] != t:
+                    return False
+            return True
 
-    keep_mask = [True] * len(tokens)
-    i = 0
-    while i < len(tokens):
-        token = tokens[i]
-        if not re.match(r"\w+", token):
-            i += 1
-            continue
-        matched = False
-        for seq in sequences:
-            for L in range(len(seq), min_seq_len - 1, -1):
-                if i + L > len(tokens):
-                    continue
-                segment = [t for t in tokens[i:i + L] if re.match(r"\w+", t)]
-                if len(segment) < L:
-                    continue
-                if is_seq(segment, seq):
-                    for k in range(i, i + L):
-                        keep_mask[k] = False
-                    i += L
-                    matched = True
+        keep_mask = [True] * len(tokens_lower)
+        hallucination_found = False
+        i = 0
+        while i < len(tokens_lower):
+            token = tokens_lower[i]
+            if not re.match(r"\w+", token):
+                i += 1
+                continue
+            matched = False
+            for seq in sequences:
+                for L in range(len(seq), min_seq_len - 1, -1):
+                    if i + L > len(tokens_lower):
+                        continue
+                    segment = [t for t in tokens_lower[i:i + L] if re.match(r"\w+", t)]
+                    if len(segment) < L:
+                        continue
+                    if is_seq(segment, seq):
+                        for k in range(i, i + L):
+                            keep_mask[k] = False
+                        i += L
+                        matched = True
+                        hallucination_found = True
+                        break
+                if matched:
                     break
-            if matched:
-                break
-        if not matched:
-            i += 1
+            if not matched:
+                i += 1
 
-    filtered_tokens = [t for t, keep in zip(tokens, keep_mask) if keep]
+        # --- Step 3: 若无幻觉 & 无模板匹配 → 返回原文
+        if not hallucination_found and not templated_removed:
+            return original_text
 
-    # --- Step 3: Reconstruct text with natural spacing
-    cleaned = ""
-    prev = ""
-    for t in filtered_tokens:
-        # Word or number
-        if re.match(r"[\w]", t):
-            if prev and re.match(r"[\w\)\]\}]", prev):
-                cleaned += " "
-            cleaned += t
-        # Opening bracket
-        elif t in "([{" and prev and re.match(r"[\w\)\]\}]", prev):
-            cleaned += " " + t
-        # Closing bracket
-        elif t in ")]}" and cleaned.endswith(" "):
-            cleaned = cleaned[:-1] + t
-        # Punctuation (, . ? ! :) — ensure space after if followed by word later
-        elif t in ",.!?;:":
-            cleaned += t
-        else:
-            cleaned += t
-        prev = t
+        # --- Step 4: 重构文本（带空格 & 小数点保护）
+        cleaned = ""
+        prev = ""
+        for i, t in enumerate(tokens_orig):
+            if not keep_mask[i]:
+                continue
+            if re.match(r"[\w]", t):
+                if prev and re.match(r"[\w\)\]\}]", prev):
+                    cleaned += " "
+                cleaned += t
+            elif t in "([{" and prev and re.match(r"[\w\)\]\}]", prev):
+                cleaned += " " + t
+            elif t in ")]}" and cleaned.endswith(" "):
+                cleaned = cleaned[:-1] + t
+            elif t in ",.!?;:":
+                # 小数点不加空格
+                if t == "." and re.match(r"\d", prev) and i + 1 < len(tokens_orig) and re.match(r"\d", tokens_orig[i + 1]):
+                    cleaned += t
+                else:
+                    cleaned += t + " "
+            else:
+                cleaned += t
+            prev = t
 
-    # --- Step 4: fix spaces: add space after punctuation if missing before word
-    cleaned = re.sub(r"([,;:!?])([^\s\w])", r"\1 \2", cleaned)
-    cleaned = re.sub(r"([,;:!?])(\w)", r"\1 \2", cleaned)
-    cleaned = re.sub(r"\s+", " ", cleaned).strip()
-
-    # --- Step 5: restore casing
-    restored = ""
-    j = 0
-    for ch in cleaned:
-        while j < len(text) and text[j].lower() != ch.lower():
-            j += 1
-        if j < len(text):
-            restored += text[j]
-            j += 1
-        else:
-            restored += ch
-    return restored.strip()
-
+        # 清理多余空格、孤立标点
+        cleaned = re.sub(r"\s+", " ", cleaned)
+        cleaned = re.sub(r"\s+([,.;:!?])", r"\1", cleaned)
+        cleaned = re.sub(r"([,.;:!?])\s+([,.;:!?])", r"\1 \2", cleaned)
+        cleaned = re.sub(r"\s*\.\s*\.", ".", cleaned)
+        cleaned = re.sub(r"\s*\.\s*$", "", cleaned)  # 去掉末尾孤立句号
+        return cleaned.strip()
+    except Exception as e:
+        print(f"Error cleaning sequential hallucinations: {e}")
+        return text
 
 def clean_text(text: str) -> str:
     """
@@ -328,7 +329,7 @@ def parse_model_output(output_string: str) -> Dict[str, any]:
             parsed_data['transcript'] = remaining_text
             parsed_data['transcript_clean'] = clean_text(remaining_text)
         
-        event_text = [f'({event})' for event in parsed_data['events'] if event is not 'unknown' and event is not 'speech']
+        event_text = [f'({event})' for event in parsed_data['events'] if event != 'unknown' and event != 'speech']
         event_text = ' '.join(event_text).strip()
         if event_text:
             parsed_data['transcript_clean_with_event'] = event_text + ' ' + parsed_data['transcript_clean'] 
