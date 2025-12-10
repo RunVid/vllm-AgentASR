@@ -76,14 +76,23 @@ async def root():
 #         "<think>\n\n</think>\n\n"
 #     )
 #     return prompt
-def generate_prompt():
-    prompt = (
-        "<|im_start|>system\nYou are a helpful assistant. /no_think<|im_end|>\n"
-        "<|im_start|>user\n"
-        "EMOTION_OFF EVENT_ON TRANSCRIPTION_ON\n\nAnalyze the audio. Audio 1: <|AUDIO|><|im_end|>\n"
-        "<|im_start|>assistant\n"
-        "<think>\n\n</think>\n\n"
-    )
+def generate_prompt(context=""):
+    if context:
+        prompt = (
+            "<|im_start|>system\nYou are a helpful assistant. /no_think<|im_end|>\n"
+            "<|im_start|>user\n"
+            f"EMOTION_OFF EVENT_ON TRANSCRIPTION_ON\n\nPrior context:\n{context}\n\nAnalyze the audio. Audio 1: <|AUDIO|><|im_end|>\n"
+            "<|im_start|>assistant\n"
+            "<think>\n\n</think>\n\n"
+        )
+    else:
+        prompt = (
+            "<|im_start|>system\nYou are a helpful assistant. /no_think<|im_end|>\n"
+            "<|im_start|>user\n"
+            "EMOTION_OFF EVENT_ON TRANSCRIPTION_ON\n\nAnalyze the audio. Audio 1: <|AUDIO|><|im_end|>\n"
+            "<|im_start|>assistant\n"
+            "<think>\n\n</think>\n\n"
+        )
     return prompt
     
 @app.post("/api/v1/asr")
@@ -188,6 +197,7 @@ async def websocket_audio_stream(websocket: WebSocket):
                 audio_buffer += message["bytes"]
             elif "text" in message:
                 command = message["text"]
+                context = message.get("context", "")
                 window_size_seconds = None
                 
                 if command.startswith('{') and command.endswith('}'):
@@ -226,7 +236,7 @@ async def websocket_audio_stream(websocket: WebSocket):
                         
                         audios_with_sr = [(waveform_np, sample_rate)]
 
-                        prompt = generate_prompt()
+                        prompt = generate_prompt(context)
                         sampling_params = SamplingParams(temperature=0.01, max_tokens=512, top_k=1, stop_token_ids=None)
                         mm_data = {"audio": audios_with_sr}
                         inputs = {"prompt": prompt, "multi_modal_data": mm_data}
