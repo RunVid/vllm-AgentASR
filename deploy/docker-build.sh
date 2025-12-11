@@ -4,12 +4,13 @@ set -e
 # Load shared configuration
 source "$(dirname "$0")/deploy.conf"
 
-# Allow VERSION to be overridden by environment variable
-VERSION="${VERSION:-$VERSION}"
-IMAGE_FULL="${IMAGE_NAME}:${VERSION}"
+# IMAGE_TAG: for Docker image tag (can be git hash)
+# VERSION: for Python package version (must be PEP 440)
+IMAGE_FULL="${IMAGE_NAME}:${IMAGE_TAG}"
 
 echo "============================================"
 echo "Docker Image: ${IMAGE_FULL}"
+echo "Python Version: ${VERSION}"
 echo "============================================"
 
 # Parse arguments
