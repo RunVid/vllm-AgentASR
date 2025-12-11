@@ -37,7 +37,7 @@ echo "Environment: ${ENV}"
 echo "Using GPUs: ${GPUS_TO_USE[*]}"
 echo "Instances per GPU: ${INSTANCES_PER_GPU}"
 echo "Base port: ${BASE_PORT}"
-echo "Image: ${IMAGE_NAME}:${VERSION}"
+echo "Image: ${IMAGE_NAME}:${IMAGE_TAG}"
 
 port_offset=0
 # Loop through each instance number
@@ -63,7 +63,7 @@ do
       -v "${HF_CACHE_DIR}:/root/.cache/huggingface" \
       -p "127.0.0.1:${port}:50002" \
       --ipc=host \
-      ${IMAGE_NAME}:${VERSION}
+      ${IMAGE_NAME}:${IMAGE_TAG}
 
     port_offset=$((port_offset + 1))
   done
