@@ -197,7 +197,7 @@ async def websocket_audio_stream(websocket: WebSocket):
                 audio_buffer += message["bytes"]
             elif "text" in message:
                 command = message["text"]
-                context = message.get("context", "")
+                context = ""
                 window_size_seconds = None
                 
                 if command.startswith('{') and command.endswith('}'):
@@ -206,9 +206,13 @@ async def websocket_audio_stream(websocket: WebSocket):
                         if cmd_obj.get("command") == "TRANSCRIBE":
                             window_size_seconds = cmd_obj.get("window_size")
                             command = "TRANSCRIBE"
+                            context = cmd_obj.get("grounding_text", "") # for context-aware ASR
                     except json.JSONDecodeError:
                         pass
-                        
+                
+                if context:
+                    print(f"Context-aware ASR, grounding_text: {context}")
+
                 if command == "TRANSCRIBE":
                     audio_format = detect_audio_format(audio_buffer)
                     
