@@ -311,7 +311,7 @@ class Qwen2AudioEncoder(Qwen2AudioPreTrainedModel):
     def __init__(self, config: Qwen2AudioEncoderConfig):
         super().__init__(config)
 
-        print(f"[Qwen2AudioEncoder] config: No Padding version}")
+        print(f"[Qwen2AudioEncoder] config: No Padding version")
 
         self.dropout = config.dropout
         self.layerdrop = config.encoder_layerdrop
