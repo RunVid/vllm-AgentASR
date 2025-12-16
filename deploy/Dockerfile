@@ -74,6 +74,10 @@ RUN python3 -m pip install torchcodec
 # Changes to these files will only invalidate the cache from this point onwards.
 COPY . .
 
+# Replace the default modeling_qwen2_audio.py with our custom version
+RUN cp /app/modeling_qwen2_audio.py \
+    $(python3 -c "import transformers; print(transformers.__path__[0])")/models/qwen2_audio/modeling_qwen2_audio.py
+
 # --- STAGE 3: Final configuration ---
 # Expose the application port
 EXPOSE 50002
