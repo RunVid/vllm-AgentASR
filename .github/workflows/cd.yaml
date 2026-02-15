@@ -15,6 +15,10 @@ on:
         options:
           - prod
           - staging
+      image_tag:
+        description: 'Docker image tag (optional, leave empty to auto-generate from commit)'
+        required: false
+        default: ''
 
 jobs:
   deploy:
@@ -56,6 +60,12 @@ jobs:
       - name: Build and run Docker image on Server ${{ matrix.server_id }}
         timeout-minutes: 90  # Allow up to 90 minutes for build and deploy
         run: |
+          # Set IMAGE_TAG if provided
+          IMAGE_TAG_CMD=""
+          if [ -n "${{ github.event.inputs.image_tag }}" ]; then
+            IMAGE_TAG_CMD="export IMAGE_TAG=${{ github.event.inputs.image_tag }} &&"
+          fi
+          
           ssh -o StrictHostKeyChecking=no \
               -o ServerAliveInterval=60 \
               -o ServerAliveCountMax=120 \
@@ -66,6 +76,7 @@ jobs:
           export VERSION=${{ env.COMMIT_ID }} && \
           export ENVIRONMENT=${{ env.ENVIRONMENT }} && \
           export HF_TOKEN=${{ env.HF_TOKEN }} && \
+          ${IMAGE_TAG_CMD} \
           ./deploy/docker-build.sh && \
           ./deploy/docker-run.sh ${{ env.ENVIRONMENT }}"
 
