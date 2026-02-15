@@ -57,6 +57,7 @@ do
     # Run the new container
     sudo docker run -d \
       --name ${container_name} \
+      --restart always \
       --gpus device=${gpu_id} \
       -e "MODEL_PATH=${MODEL_PATH}" \
       -e "HF_TOKEN=${HF_TOKEN}" \
